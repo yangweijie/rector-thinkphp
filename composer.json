@@ -1,5 +1,5 @@
 {
-    "name": "rector/rector-thinkphp",
+    "name": "yangweijie/rector-thinkphp",
     "description": "Rector rules for upgrading ThinkPHP projects from version 3.1.2 to 8.1",
     "type": "rector-extension",
     "license": "MIT",
