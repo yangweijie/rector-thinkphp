@@ -1,0 +1,202 @@
+{
+  "description": "Batch upgrade configuration for multiple ThinkPHP projects",
+  "version": "1.0",
+  "settings": {
+    "default_backup": true,
+    "continue_on_error": false,
+    "parallel_limit": 3,
+    "timeout_per_project": 1800
+  },
+  "projects": {
+    "project-alpha": {
+      "path": "/var/www/project-alpha",
+      "from_version": "3.2",
+      "to_version": "6.0",
+      "priority": "high",
+      "backup": true,
+      "database": {
+        "hostname": "localhost",
+        "database": "project_alpha",
+        "username": "root",
+        "password": "password",
+        "hostport": 3306,
+        "prefix": "tp_"
+      },
+      "custom_rules": [
+        "CustomNamespaceRector",
+        "CustomConfigRector"
+      ],
+      "skip_rules": [
+        "ThinkPHP32EchoToReturnRector"
+      ],
+      "post_upgrade_commands": [
+        "composer install --no-dev",
+        "php think clear",
+        "php think optimize:autoload"
+      ]
+    },
+    "project-beta": {
+      "path": "/var/www/project-beta",
+      "from_version": "5.0",
+      "to_version": "8.0",
+      "priority": "medium",
+      "backup": true,
+      "database": {
+        "hostname": "localhost",
+        "database": "project_beta",
+        "username": "root",
+        "password": "password",
+        "hostport": 3306,
+        "prefix": "think_"
+      },
+      "environment": "production",
+      "maintenance_mode": true,
+      "post_upgrade_commands": [
+        "composer install --no-dev --optimize-autoloader",
+        "php think clear",
+        "php think migrate"
+      ]
+    },
+    "project-gamma": {
+      "path": "/var/www/project-gamma",
+      "from_version": "5.1",
+      "to_version": "6.0",
+      "priority": "low",
+      "backup": false,
+      "skip": false,
+      "database": {
+        "hostname": "db.example.com",
+        "database": "project_gamma",
+        "username": "gamma_user",
+        "password": "secure_password",
+        "hostport": 3306,
+        "prefix": "app_"
+      },
+      "git": {
+        "create_branch": true,
+        "branch_name": "upgrade-to-6.0",
+        "commit_changes": true,
+        "commit_message": "Upgrade to ThinkPHP 6.0"
+      },
+      "notifications": {
+        "email": "admin@example.com",
+        "slack_webhook": "https://hooks.slack.com/services/..."
+      }
+    },
+    "legacy-project": {
+      "path": "/var/www/legacy-project",
+      "from_version": "3.2",
+      "to_version": "5.1",
+      "priority": "low",
+      "backup": true,
+      "skip": false,
+      "notes": "Legacy project with custom modifications",
+      "pre_upgrade_checks": [
+        "check_custom_modifications",
+        "verify_dependencies",
+        "backup_custom_files"
+      ],
+      "custom_backup_paths": [
+        "Application/Common/Custom",
+        "Public/uploads",
+        "Runtime/Logs"
+      ],
+      "rollback_plan": {
+        "enabled": true,
+        "auto_rollback_on_failure": true,
+        "rollback_timeout": 300
+      }
+    },
+    "microservice-api": {
+      "path": "/var/www/microservice-api",
+      "from_version": "6.0",
+      "to_version": "8.0",
+      "priority": "high",
+      "backup": true,
+      "environment": "production",
+      "load_balancer": {
+        "enabled": true,
+        "remove_from_pool": true,
+        "health_check_url": "/health",
+        "wait_for_drain": 30
+      },
+      "monitoring": {
+        "enabled": true,
+        "metrics_endpoint": "/metrics",
+        "alert_on_failure": true
+      },
+      "deployment": {
+        "strategy": "blue_green",
+        "health_checks": true,
+        "rollback_on_failure": true
+      }
+    }
+  },
+  "global_settings": {
+    "backup_retention_days": 30,
+    "log_level": "info",
+    "report_format": "html",
+    "notification_settings": {
+      "email": {
+        "enabled": true,
+        "smtp_host": "smtp.example.com",
+        "smtp_port": 587,
+        "username": "notifications@example.com",
+        "password": "smtp_password",
+        "from": "ThinkPHP Upgrade Tool <notifications@example.com>",
+        "to": ["admin@example.com", "dev-team@example.com"]
+      },
+      "slack": {
+        "enabled": false,
+        "webhook_url": "https://hooks.slack.com/services/...",
+        "channel": "#deployments",
+        "username": "ThinkPHP Upgrade Bot"
+      }
+    },
+    "performance_monitoring": {
+      "enabled": true,
+      "collect_metrics": true,
+      "export_format": "json",
+      "include_system_metrics": true
+    },
+    "security": {
+      "verify_checksums": true,
+      "scan_for_vulnerabilities": true,
+      "update_security_configs": true
+    }
+  },
+  "upgrade_order": [
+    "project-alpha",
+    "microservice-api",
+    "project-beta",
+    "project-gamma",
+    "legacy-project"
+  ],
+  "rollback_strategy": {
+    "global_rollback": false,
+    "rollback_on_first_failure": false,
+    "max_failures_before_stop": 2,
+    "rollback_timeout": 600
+  },
+  "testing": {
+    "run_tests_after_upgrade": true,
+    "test_commands": [
+      "vendor/bin/phpunit",
+      "vendor/bin/pest",
+      "php think test"
+    ],
+    "acceptance_criteria": {
+      "min_test_coverage": 80,
+      "max_response_time": 500,
+      "zero_critical_errors": true
+    }
+  },
+  "reporting": {
+    "generate_detailed_report": true,
+    "include_performance_metrics": true,
+    "include_security_scan": true,
+    "export_formats": ["html", "json", "pdf"],
+    "email_report": true,
+    "upload_to_s3": false
+  }
+}

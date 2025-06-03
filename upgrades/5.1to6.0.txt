@@ -1,0 +1,600 @@
+# `5.1`升级到`6.0`版本
+
+> 不建议老的项目升级到新版，除非你有重构计划，否则就算升级了也只是表面上升级了。
+
+> 本文主要用于指导开发者从`5.1`升级到`6.0`最新（RC）版本，由于`6.0`不支持`5.1`的无缝升级，下面的升级步骤和指导仅供学习参考，或有遗漏及考虑不周之处，因此不保证你的所有功能都能正常升级。
+
+`6.0`版本必须使用`composer`安装，所以你需要首先安装新的`6.0`版本，然后把原来`5.1`的文件复制进去，完成升级工作。
+
+~~~
+解释composer create-project topthink/think:6.0.0 tp
+
+~~~
+
+安装完成后，把原来`application`目录下面的文件复制到`app`目录下面，然后把`config`和`route`目录下的文件复制到同名目录下。接下来，按照下面的步骤来升级操作。
+
+从`5.1`多模块迁移到`6.0`的多应用后，应用类库的命名空间原则上可以无需调整，但不再支持跨应用调用（包括路由及模板，每个应用的路由是独立的），这点务必引起重视。如果你的应用根命名空间不是默认的`app`需要改成`app`。
+
+## 第一步：应用配置
+
+如果原来你使用了多模块开发模式，直接改成新版的多应用模式是最简单的，需要额外安装多应用模式扩展。
+
+~~~
+解释composer require topthink/think-multi-app
+
+~~~
+
+如果你自定义了访问控制器的名称，需要修改`route.php`配置文件中的`controller_layer`值。
+
+~~~
+解释// 访问控制器层名称
+'controller_layer'      => 'controller',
+
+~~~
+
+如果你开启了控制器类的后缀，需要设置`route.php`配置文件中的`controller_suffix`值。
+
+~~~
+解释// 开启控制器后缀
+'controller_suffix'     => true,
+
+~~~
+
+如果自定义了空控制器的名称，则需要设置`route.php`配置文件中的`empty_controller`值。
+
+~~~
+解释// 空控制器名
+'empty_controller'      => 'Error',
+
+~~~
+
+## 第二步：配置调整
+
+请按照如下顺序检查及调整你的配置文件和相关配置代码。
+
+### 应用的配置文件
+
+如果是多应用的话，应用配置文件应当放入应用下的`config`目录。全局配置文件位置无需调整。
+
+### 配置获取调整
+
+原来获取一级配置参数的方式
+
+~~~
+解释Config::pull('app');
+
+~~~
+
+需要改成
+
+~~~
+解释Config::get('app');
+
+~~~
+
+所有的配置读取必须从第一级配置开始，例如，原来的
+
+~~~
+解释Config::get('exception_handle');
+
+~~~
+
+必须改成
+
+~~~
+解释Config::get('app.exception_handle');
+
+~~~
+
+### 废弃动态设置
+
+动态更改配置参数的用法已经废弃，下面的用法不再支持。
+
+~~~
+解释Config::set('route.default_return_type', 'json');
+
+~~~
+
+如果你需要把数据库的配置参数读入配置，可以使用
+
+~~~
+解释$config = Db::name('config')->column('value', 'name');
+Config::set($config, 'route');
+
+~~~
+
+### `Config`类不再支持数组方式读取
+
+`Config`类不再使用`ArrayAccess`接口，因此不再支持数组方式读取。
+
+### 路由和URL配置独立
+
+路由和URL请求相关的配置参数独立为`route.php`配置文件，而不再使用`app.php`配置文件。
+
+## 第三步：路由和请求调整
+
+### 路由定义文件位置调整
+
+单应用模式下，路由定义文件和之前一样就在`route`目录下面，如果你的项目是采用了多应用模式的话，每个应用的路由定义和匹配都是独立的，也没有模块的概念，路由定义文件的位置应该是在`应用/route`下面，例如：
+
+~~~
+解释app/index/route/route.php //  index应用的路由定义文件
+app/index/route/web.php //  index应用的第二个路由定义文件
+app/admin/route/route.php // admin应用的路由定义文件
+
+~~~
+
+> 应用的路由规则其实是定义的入口文件（或者应用名）后面的URL部分，而不包含应用。
+
+### 路由注册方法调整
+
+首先如果你的路由定义采用的是返回数组形式，全部改成方法定义。
+
+例如：
+
+~~~
+解释return [
+    'hello/:name' => 'index/hello',
+];
+
+~~~
+
+必须改成：
+
+~~~
+解释Route::get('hello/:name', 'index/hello');
+
+~~~
+
+如果路由定义方法（包括`rule`/`get`/`post`/`put`/`delete`/`patch`/`miss`/`group`等方法）使用了`option`和`pattern`参数，全部改成方法调用形式，例如原来的：
+
+~~~
+解释Route::get('hello/:name', 'index/hello', [ 'ext'  =>  'html'], [ 'name'  => '\w+']);
+
+~~~
+
+需要改成
+
+~~~
+解释Route::get('hello/:name', 'index/hello')
+    ->ext('html')
+    ->pattern([ 'name'  => '\w+']);
+
+~~~
+
+### 路由分组调整
+
+如果路由分组定义使用了数组，改成闭包方式定义，例如：
+
+~~~
+解释Route::group('blog', [
+    ':id'   => 'Blog/read',
+    ':name' => 'Blog/read',
+])->ext('html')->pattern(['id' => '\d+']);
+
+~~~
+
+必须改成
+
+~~~
+解释Route::group('blog', function() {
+    Route::get(':id', 'Blog/read');
+    Route::get(':name', 'Blog/read');
+})->ext('html')->pattern(['id' => '\d+']);
+
+~~~
+
+如果你需要注册一个虚拟的路由分组，可以直接在第一个参数使用闭包
+
+~~~
+解释Route::group(function() {
+    Route::get('blog/:id', 'Blog/read');
+    Route::get('user/:name', 'User/read');
+})->ext('html')->pattern(['id' => '\d+']);
+
+~~~
+
+### 取消了`url_controller_layer`配置
+
+改为在`route.php`配置文件中使用`controller_layer`设置。
+
+### 取消`controller_suffix`配置
+
+改为在`route.php`配置文件中使用`controller_suffix`设置。
+
+同时`class_suffix`配置参数已经无效。
+
+### 取消`mergeExtraVars`方法和对应参数
+
+改为在路由规则中明确指定变量规则。
+
+### `allowCrossDomain`方法参数调整
+
+取消原来的第一个参数。
+
+### `header`方法取消
+
+需要单独改变Header信息的直接通过中间件统一处理。
+
+### 取消`Request`类的`hook`方法
+
+该方法已经在最新版本中取消。如果你使用了该功能，在自定义请求对象`app\Request`中直接增加相应的方法即可。并确保`provider.php`文件中添加如下绑定：
+
+~~~
+解释'think\Request' => \app\Request::class,
+
+~~~
+
+### 取消`URL`参数模式配置
+
+原来的URL参数模式配置参数`url_param_type`，统一使用参数/值的方式。如果你设置了该配置参数为1，必须改成定义路由的方式。
+
+### 取消别名路由
+
+因为使用场景有限和性能开销问题，取消原来的别名路由功能，建议使用资源路由或者单独的路由替代。
+
+### 取消快捷路由
+
+因为使用场景有限和不太符合规范，取消了原来的控制器快捷路由功能。
+
+### 取消空操作功能
+
+建议使用分组MISS路由功能或者控制器的`__call`方法替代。
+
+## 第四步：控制器和视图调整
+
+### `think\Controller`类取消
+
+系统不再提供基础控制器类`think\Controller`，原来的`success`、`error`、`redirect`和`result`方法需要自己在基础控制器类里面实现。
+
+系统默认在应用目录下面提供了一个`app\BaseController`基础类，或者你可以直接放入你的应用里面，继承使用。
+
+你可以安装下面的扩展用于支持旧版本的跳转操作
+
+~~~
+解释composer require liliuwei/thinkphp-jump
+
+~~~
+
+### 视图和模板引擎从核心分离
+
+模板引擎类不再内置到核心框架，但使用
+
+~~~
+解释composer create-project topthink/think 
+
+~~~
+
+会默认安装该组件（如果不需要使用的话可以自己卸载`topthink/think-view`）。
+
+安装后，由于内置的`think\Controller`类已经取消，如果你的控制器类需要调用`fetch`/`display`/`assign`等视图方法，必须改为调用`think\facade\View`类，如果是使用`view`助手函数方式的话，可以无需调整。
+
+~~~
+解释View::assign('name', $name);
+View::fetch();
+
+~~~
+
+### `share`方法取消
+
+原来视图类的`share`方法取消，可以使用
+
+~~~
+解释think\facade\View::assign($vars);
+
+~~~
+
+## 第五步：数据库和模型调整
+
+### `Db`改为使用门面对象
+
+新版的`Db`类不再是静态类，需要使用`think\facade\Db`门面进行静态代理。
+
+~~~
+解释\think\facade\Db::name('user')->find();
+
+~~~
+
+### 数据库配置信息调整
+
+数据库配置文件或者`connect`方法取消`DSN`数据库配置定义方式，全部采用数组方式配置定义。
+
+~~~
+解释Db::connect('mysql://root:1234@127.0.0.1:3306/thinkphp#utf8')
+	->table('user')
+    ->find();
+
+~~~
+
+必须改成
+
+~~~
+解释Db::connect('db_config')
+	->table('user')
+    ->find();
+
+~~~
+
+并且按照新版的规范在数据库配置文件中增加`db_config`连接信息。
+
+### 取消`fetchPdo`方法
+
+取消了`Query`类的`fetchPdo`方法，需要的时候直接使用`getPdo`方法替代。
+
+### 取消查询方法传入`Query`对象
+
+取消Query类的CURD查询方法传入当前对象，如果需要请使用闭包替代。
+
+### `insert`/`insertGetId`/`insertAll`方法取消`replace`参数
+
+`insert`/`insertGetId`/`insertAll`方法的第二个`replace`参数已经取消，改为使用`replace`方法。
+
+~~~
+解释$data = ['foo' => 'bar', 'bar' => 'foo'];
+Db::name('user')->insert($data, true);
+
+~~~
+
+需要改为
+
+~~~
+解释$data = ['foo' => 'bar', 'bar' => 'foo'];
+Db::name('user')->replace()->insert($data);
+
+~~~
+
+### 取消`db`和`model`助手函数
+
+这两个助手函数`5.1`版本已经不再建议使用了，`6.0`版本已经废弃掉这两个助手函数，请直接使用`\think\facade\Db`类静态方法和实际的模型类调用。
+
+### 取消`setInc`/`setDec`方法
+
+取消Query类的`setInc`/`setDec`方法，统一使用`inc`/`dec`方法替代。例如：
+
+~~~
+解释Db::name('user')->where('id', 1)
+    ->inc('exp')
+    ->dec('score')
+    ->update();
+
+~~~
+
+### 取消`join`方法的批量操作
+
+`join`方法不再支持批量操作多个表，如果你使用了`join`方法批量操作，需要改成每个表单独调用一次`join`方法。
+
+### 取消`setField`方法
+
+取消Query类的`setField`方法，请直接使用`data`方法或者`update`方法。
+
+### 取消`__TABLE_NAME__`支持
+
+`table`方法取消`__TABLE_NAME__`支持，必须明确调用完整表名或者使用`name`方法。
+
+### 取消`whereOr`等方法传入`Query`对象
+
+因为`Query`对象查询只能使用一次，除了`where`方法本身可以传入`Query`对象外，其它的所有`where`查询方法（例如`whereOr`/`whereExp`等）都不再支持传入`Query`对象。
+
+### 取消`resultset_type`配置参数
+
+数据集查询结果不再受`resultset_type`配置参数影响，默认情况下，Db查询统一返回数组，模型查询统一返回模型对象和模型数据集对象。如果Db查询的时候也需要返回数据集的话，可以显式调用`fetchCollection`方法。
+
+### 取消`Query`类的`extend`方法
+
+取消了`Query`类的`extend`方法，如果需要扩展查询方法，建议自定义`Query`类并继承系统的`think\db\Query`类即可，然后在模型中定义`query`属性或者配置数据库连接的`query`参数为你的自定义类。
+
+### `Expression`对象调整
+
+原来的`Expression`对象已经更改为更适合的`Raw`对象，但不影响`Db::raw()`方法的调用。
+
+### 取消查询`eq/neq/gt/lt/egt/elt`表达式
+
+由于存在两种用法，并且不够直观，全部统一为更直观的用法。
+
+下面的用法不再支持
+
+~~~
+解释Db::name('user')->where('id', 'egt', 1)
+    ->where('status', 'neq' ,1)
+    ->select();
+
+~~~
+
+统一使用
+
+~~~
+解释Db::name('user')->where('id', '>=', 1)
+    ->where('status', '<>' ,1)
+    ->select();
+
+~~~
+
+### 取消分表功能
+
+出于分表的性能问题和复杂性，不再提供分表方法，建议使用数据库的分区功能替代。新版可以使用`partition`方法指定当前查询的分区。
+
+### 数据库的查询统计合并
+
+数据库的查询次数合并到`queryTimes`，不再区分读写操作，你可以使用下面的方法获取当前请求的数据库查询次数（包括读写）
+
+~~~
+解释Db::getQueryTimes();
+
+~~~
+
+### 模型后缀
+
+如果之前开启了类库后缀功能的话，你必须在模型类里面明确指定`name`属性。
+
+### 取消了模型的`get`/`all`方法
+
+无论使用`Db`类还是模型类查询，全部统一使用`find`/`select`方法，取消了之前模型类额外提供的`get`/`all`方法。同时取消的方法还包括`getOrFail`/`allOrFail`。
+
+### 取消全局查询范围`base`方法
+
+取消模型类的全局查询范围`base`方法，改由使用`globalScope`属性定义（数组）需要全局查询的查询范围方法。
+
+### 模型事件调整
+
+模型事件不再需要使用`event`方法注册事件，统一在模型类中定义事件方法，例如
+
+~~~
+解释<?php
+namespace app\index\model;
+
+use think\Model;
+
+class User extends Model
+{
+    public function onAfterRead($user)
+    {
+        $user->extra = 'extra';
+    }
+
+    public function onBeforeWrite($user)
+    {
+        $user->extra = 'extra';
+    }
+}
+
+~~~
+
+并且模型增加`after_read`事件，在查询后创建模型对象实例的时候触发。
+
+### 取消模型自动完成
+
+模型的自动完成功能已经取消，请使用模型事件代替。
+
+### 模型`save`方法调整
+
+模型类的`save`方法不再支持`where`参数。
+
+### 关联统计调整
+
+如果你的关联统计使用了闭包方式返回关联统计字段，需要调整为如下方式：
+
+~~~
+解释User::withCount(['cards' => function($query,&$name) {
+    $query->where('status', 1);
+    $name = 'card_count';
+}])->select();
+
+~~~
+
+### 模型和数据集的输出调整
+
+取消`hidden`/`visible`/`append`方法的第二个参数，当你调用这几个方法的时候，无论模型是否设置了相关属性，都会直接覆盖之前设置的值。
+
+### 查询缓存调整
+
+如果希望在更新和删除之后自动清除之前的查询缓存，必须在`cache`方法中传入key值而不是`true`。
+
+### 删除关联类`selfRelation`方法
+
+如果你在定义关联的时候使用了`selfRelation`方法，请直接删除该方法，目前已经不再需要，会自动识别是否为自关联。
+
+### 删除关联类的`setEagerlyType`方法
+
+一对一关联无需在定义关联的时候指定为`JOIN`查询，在查询的时候直接使用`withJoin`方法即可使用`JOIN`方式进行关联查询。
+
+### 多对多关联
+
+多对多关联的`pivotDataName`方法更名为更简单的`name`方法。
+
+## 第六步：行为调整
+
+行为和`Hook`已经用新版的事件机制替代，需要把你的行为改成事件响应或者中间件（部分请求拦截的行为可以直接改为中间件）。
+
+原来的系统内置钩子的行为类
+
+~~~
+解释<?php
+namespace app\index\behavior;
+
+class Hello
+{
+    public function run($params)
+    {
+        // 行为逻辑
+    }
+}
+
+~~~
+
+可以改成事件监听类
+
+~~~
+解释namespace app\index\listener;
+
+class Hello
+{
+    public function handle($event)
+    {
+        // 事件监听处理
+    }   
+}
+
+~~~
+
+然后在应用目录的`event.php`文件中配置事件监听。
+
+~~~
+解释return [
+    'listen'    =>    [
+        'AppInit'    =>    ['\app\index\listener\Hello'],
+        // 更多事件监听
+    ],
+];
+
+~~~
+
+修改完成后，你可以删除应用目录下不再使用的`tags.php`文件。
+
+内置事件和钩子的对应关系如下：
+
+| 事件 | 对应`5.1`钩子 | 参数 |
+| --- | --- | --- |
+| `AppInit` | `app_init` | 无 |
+| `AppEnd` | `app_end` | 当前响应对象实例 |
+| `LogWrite` | `log_write` | 当前写入的日志信息 |
+| `LogLevel` | `log_level` | 包含日志类型和日志信息的数组 |
+
+> 原来的`app_begin`、`response_send`、`response_end`、`action_begin`、`module_init`和`view_filter`钩子已经废弃。
+
+## 第七步：其它调整及注意事项
+
+### 系统`Facade`类库别名取消
+
+系统`Facade`类库的别名已经取消，因此不能再使用
+
+~~~
+解释use Route;
+Route::rule('hello/:name', 'index/hello');
+
+~~~
+
+必须使用
+
+~~~
+解释use think\facade\Route;
+Route::rule('hello/:name', 'index/hello');
+
+~~~
+
+### `Session`调整
+
+`Session`新版默认不开启，必须为在全局中间件定义文件中添加
+
+~~~
+解释'think\middleware\SessionInit'
+
+~~~
+
+原来的`Session::get()`可以获取全部的Session数据必须改成`Session::all()`
+
+### 严格类型检查
+
+由于新版框架核心类库全面启用强类型参数，并且使用严格模式，所以在调用系统方法的时候一定要注意参数的类型，或者注意看抛出的异常信息进行修正。
+
+
+[ThinkPHP6 文档](https://doc.thinkphp.cn/v6_1/default.html)

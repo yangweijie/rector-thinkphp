@@ -1,0 +1,188 @@
+version: '3.8'
+
+services:
+  thinkphp-rector:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: thinkphp-rector
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - ../:/app
+      - projects_data:/projects
+      - reports_data:/app/storage/reports
+      - backups_data:/app/storage/backups
+      - logs_data:/app/storage/logs
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=info
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=thinkphp_rector
+      - MYSQL_USERNAME=rector
+      - MYSQL_PASSWORD=rector_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: thinkphp-rector-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=thinkphp_rector
+      - MYSQL_USER=rector
+      - MYSQL_PASSWORD=rector_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: thinkphp-rector-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: thinkphp-rector-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ../public:/var/www/public
+      - ssl_certs:/etc/nginx/ssl
+    depends_on:
+      - thinkphp-rector
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: thinkphp-rector-worker
+    command: php artisan queue:work --sleep=3 --tries=3
+    volumes:
+      - ../:/app
+      - projects_data:/projects
+      - reports_data:/app/storage/reports
+      - backups_data:/app/storage/backups
+      - logs_data:/app/storage/logs
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=info
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=thinkphp_rector
+      - MYSQL_USERNAME=rector
+      - MYSQL_PASSWORD=rector_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: thinkphp-rector-scheduler
+    command: php artisan schedule:run
+    volumes:
+      - ../:/app
+      - projects_data:/projects
+      - reports_data:/app/storage/reports
+      - backups_data:/app/storage/backups
+      - logs_data:/app/storage/logs
+    environment:
+      - APP_ENV=production
+      - LOG_LEVEL=info
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=thinkphp_rector
+      - MYSQL_USERNAME=rector
+      - MYSQL_PASSWORD=rector_password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: thinkphp-rector-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: thinkphp-rector-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - monitoring
+    networks:
+      - rector_network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  projects_data:
+  reports_data:
+  backups_data:
+  logs_data:
+  ssl_certs:
+
+networks:
+  rector_network:
+    driver: bridge

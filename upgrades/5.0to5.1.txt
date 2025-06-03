@@ -1,0 +1,334 @@
+## 从`5.0`升级到`5.1`
+
+由于`5.1`版本很多用法不同于`5.0`版本，本篇内容帮助你更顺利的从`5.0`版本迁移到`5.1`版本。
+
+> 如非必要，在建项目请勿盲目升级，5.0版本依然持续维护中。
+
+### 命名空间调整
+
+如果你自定义了应用类库的命名空间，需要改为设置环境变量`APP_NAMESPACE`而不是应用配置文件，如果你使用了`.env`配置文件，可以在里面添加：
+
+~~~
+解释APP_NAMESPACE = 你的应用类库根命名空间名
+
+~~~
+
+然后，检查你的应用类库中`use`或者调用的系统类库，如果使用了下面的系统类库（主要涉及的类库是`5.0`静态调用的系统类库），那么命名空间需要调整如下：
+
+| 5.0系统 | 5.1系统 |
+| --- | --- |
+| think\\App | think\\facade\\App （或者 App ） |
+| think\\Cache | think\\facade\\Cache （或者 Cache ） |
+| think\\Config | think\\facade\\Config （或者 Config ） |
+| think\\Cookie | think\\facade\\Cookie （或者 Cookie ） |
+| think\\Debug | think\\facade\\Debug （或者 Debug ） |
+| think\\Env | think\\facade\\Env （或者 Env ） |
+| think\\Hook | think\\facade\\Hook （或者 Hook ） |
+| think\\Lang | think\\facade\\Lang （或者 Lang ） |
+| think\\Log | think\\facade\\Log （或者 Log ） |
+| think\\Request | think\\facade\\Request （或者 Request ） |
+| think\\Response | think\\facade\\Response （或者 Response ） |
+| think\\Route | think\\facade\\Route （或者 Route ） |
+| think\\Session | think\\facade\\Session （或者 Session ） |
+| think\\Url | think\\facade\\Url （或者 Url ） |
+| think\\Validate | think\\facade\\Validate （或者 Validate ） |
+| think\\View | think\\facade\\View （或者 View ） |
+
+> 如果只是用于依赖注入则无需更改命名空间。
+
+后面括号里面的类名使用是的根命名空间（`\`），这是因为5.1对常用的系统核心类库做了类库别名，举个例子，如果应用类库开头`use`了`think\Url`
+
+~~~
+解释use think\Url;
+Url::build('index/index');
+
+~~~
+
+则需要改成
+
+~~~
+解释use think\facade\Url;
+Url::build('index/index');
+
+~~~
+
+或者
+
+~~~
+解释use Url;
+Url::build('index/index');
+
+~~~
+
+> 5.1为系统的类库注册了类库别名，因此可以直接从根命名空间方式调用Url。
+
+所以路由配置文件在迁移到`5.1`版本后你可以直接删除下面的一行代码
+
+~~~
+解释use think\Route;
+
+~~~
+
+### 配置文件调整
+
+原有的配置文件`config.php`从应用目录移动到和应用目录同级的`config`目录，并拆分为`app.php`、`cache.php`等独立配置文件，系统默认的配置文件清单如下：
+
+| 配置文件 | 说明 |
+| --- | --- |
+| app.php | 应用配置文件 |
+| cache.php | 缓存配置文件 |
+| cookie.php | Cookie配置文件 |
+| database.php | 数据库配置文件 |
+| log.php | 日志配置文件 |
+| session.php | Session配置文件 |
+| template.php | 模板引擎配置文件 |
+| trace.php | 页面Trace配置文件 |
+
+> 换而言之就是原来所有的一级配置都独立为一个配置文件
+
+原来的应用`extra`目录下面的配置文件直接移动到`config`目录下面。  
+原来模块的配置文件（包括extra目录下面的）直接移动到模块下的`config`目录，然后参考上面的应用配置文件进行调整。
+
+5.1的配置文件全部采用二级配置方式，所有**不带一级配置名的参数都会作为`app`的二级配置**，例如
+
+~~~
+解释config('app_debug');
+
+~~~
+
+等同于
+
+~~~
+解释config('app.app_debug');
+
+~~~
+
+> 并且注意，5.1的二级配置参数区分大小写。
+
+一级配置`app`下的配置参数都在`app.php`配置文件中定义。
+
+如果要获取数据库配置（`database.php`文件）的参数，则需要使用
+
+~~~
+解释config('database.hostname');
+
+~~~
+
+动态设置配置参数的时候，也要注意一级配置名
+
+~~~
+解释config('cache.type', 'memcache');
+
+~~~
+
+如果要获取一级配置下面的所有参数，使用
+
+~~~
+解释Config::pull('database');
+// 或者使用
+config('database.');
+
+~~~
+
+`view_replace_str`配置参数改成template配置文件的`tpl_replace_string`配置参数。
+
+### 常量调整
+
+`5.1`取消了所有的框架内置常量（不影响应用代码中的自定义常量），如需获取，请使用`think\facade\App`类的内置方法以及`think\facade\Env`类获取，下面给出的是`5.0`和`5.1`的常量对照表：
+
+| 5.0常量 | 5.1获取方法 |
+| --- | --- |
+| EXT | 取消，固定使用`.php` |
+| IS\_WIN | 取消 |
+| IS\_CLI | 取消 |
+| DS | 使用PHP自带`DIRECTORY_SEPARATOR` |
+| ENV\_PREFIX | 取消，固定使用`PHP_` |
+| THINK\_START\_TIME | `App::getBeginTime()` |
+| THINK\_START\_MEM | `App::getBeginMem()` |
+| THINK\_VERSION | `App::version()` |
+| THINK\_PATH | `Env::get('think_path')` |
+| LIB\_PATH | `Env::get('think_path') . 'library/'` |
+| CORE\_PATH | `Env::get('think_path') . 'library/think/'` |
+| APP\_PATH | `Env::get('app_path')` |
+| CONFIG\_PATH | `Env::get('config_path')` |
+| CONFIG\_EXT | `App::getConfigExt()` |
+| ROOT\_PATH | `Env::get('root_path')` |
+| EXTEND\_PATH | `Env::get('root_path') . 'extend/'` |
+| VENDOR\_PATH | `Env::get('root_path') . 'vendor/'` |
+| RUNTIME\_PATH | `Env::get('runtime_path')` |
+| LOG\_PATH | `Env::get('runtime_path') . 'log/'` |
+| CACHE\_PATH | `Env::get('runtime_path') . 'cache/'` |
+| TEMP\_PATH | `Env::get('runtime_path'). 'temp/'` |
+| MODULE\_PATH | `Env::get('module_path')` |
+
+通过`Env`类的`get`方法获取路径变量的时候不区分大小写，例如下面的写法是等效的：
+
+~~~
+解释Env::get('root_path');
+Env::get('ROOT_PATH');
+
+~~~
+
+### 路由调整
+
+原有的路由定义文件`route.php`移动到应用目录同级的`route`目录下面，如果有定义其它的路由配置文件，一并放入`route`目录即可（无需更改文件名）。
+
+`url_route_on`配置参数无效，会始终检查路由，没有定义路由的情况下默认解析方式依然有效。
+
+原来的`before_behavior`和`after_behavior`参数更改为`before`和`after`，并且路由缓存功能暂时取消。
+
+Route类的`rule`方法不再支持批量注册路由，请使用`Route::rules`方法替代。
+
+如果使用了domain方法批量绑定模块，需要改为单独绑定，原来的用法：
+
+~~~
+解释Route::domain([
+	'a' => 'a',
+    'b' => 'b'
+]);
+
+~~~
+
+需要改为：
+
+~~~
+解释Route::domain('a','a');
+Route::domain('b','b');
+
+~~~
+
+### 数据库调整
+
+*   取消了Query类的`getTableInfo`方法，可以用更加具体的`getTableFields`  
+    或者`getFieldsType`方法替代；
+*   数据库查询后`5.1`不会清空查询条件；
+*   取消了`select(false)`用法，使用`fetchSql()->select()`替代；
+*   如果使用了mysql的JSON查询语法，`user$.name`需要改为`user->name`；
+*   改变了查询构造器的数组多字段批量查询，从原来的
+
+~~~
+解释where([
+	'name'	=>	['like','think%'],
+    'id'	=>	['>',0],
+])
+
+~~~
+
+需要调整为
+
+~~~
+解释where([
+	['name','like','think%'],
+    ['id','>',0],
+])
+
+~~~
+
+或者使用表达式语法
+
+~~~
+解释where('name','like','think%')->where('id','>',0)
+
+~~~
+
+对于纯等于的数组条件则无需调整
+
+~~~
+解释where(['name'=>'think', 'type'=>1])
+
+~~~
+
+### 模型调整
+
+为了确保模型的用法统一，对模型进行了一些调整，包括：
+
+*   模型的数据集查询始终返回数据集对象而不再是数组；
+*   模型的数据表主键如果不是`id`，则必须设置模型的`pk`属性；
+*   软删除trait引入更改为`use think\model\concern\SoftDelete`；
+*   全局查询范围`base`方法中无需添加软删除条件；
+*   聚合模型功能废除，使用关联模型配合关联自动写入功能替代，更灵活；
+*   模型的查询范围`scope`方法调用后只能使用数据库的查询方法；
+*   取消模型的数据验证功能，请使用控制器验证或者路由验证替代；
+
+### 控制器调整
+
+为了规范化，继承了`think\Controller`类的话，初始化方法从原来的`_initialize`方法更改为`initialize`。
+
+`fetch`方法以及`view`助手函数的`replace`参数废弃，如果需要模板替换功能，改成template配置文件的`tpl_replace_string`配置参数。或者使用`filter`方法进行过滤。
+
+### 验证类调整
+
+验证规则的错误信息定义不再支持规则和错误信息定义在一起，例如：
+
+~~~
+解释namespace app\index\validate;
+
+use think\Validate;
+
+class User extends Validate
+{
+    protected $rule = [
+        ['name','require|max:25','名称必须|名称最多不能超过25个字符'],
+        ['age','number|between:1,120','年龄必须是数字|年龄必须在1~120之间'],
+        ['email','email','邮箱格式错误']
+    ];
+}
+
+
+~~~
+
+需要调整为
+
+~~~
+解释namespace app\index\validate;
+
+use think\Validate;
+
+class User extends Validate
+{
+    protected $rule = [
+      'name'  => 'require|max:25',
+      'age'   => 'number|between:1,120',
+      'email' => 'email',
+    ];
+
+    protected $message = [
+      'name.require' => '名称必须',
+      'name.max'     => '名称最多不能超过25个字符',
+      'age.number'   => '年龄必须是数字',
+      'age.between'  => '年龄必须在1~120之间',
+      'email'        => '邮箱格式错误',
+    ];
+}
+
+~~~
+
+### 官方扩展
+
+官方的下列`composer`扩展请升级到最新的`2.0`版本：
+
+~~~
+解释topthink/think-captcha
+topthink/think-mongo
+topthink/think-migration
+topthink/think-testing
+topthink/think-queue
+
+~~~
+
+### 其它注意事项
+
+`Request`类不再需要`instance`方法，直接调用类的方法即可。
+
+废弃了`Rest`控制器扩展，建议更改为资源控制器的方式。  
+原来内置的其它控制器扩展，请自行在应用里面扩展。
+
+因为严格遵循`PSR-4`规范，不再建议手动导入类库文件，所以新版取消了`Loader::import`方法以及`import`和`vendor`助手函数，推荐全面采用命名空间方式的类以及自动加载机制，如果必须使用请直接改为php内置的`include`或者`require`语法。
+
+为了保持`Loader`类库的单纯性，原`Loader`类的`controller`、`model`、`action`和`validate`方法改为`App`类的同名方法，助手函数用法保持不变。
+
+模板的变量输出默认添加了`htmlentities`安全过滤，如果你需要输出html内容的话，请使用`{$var|raw}`方式替换，并且`date`方法已经做了内部封装，无需再使用`###`变量替换了。
+
+> ### 最后一个步骤不要忘了：清空缓存目录下的所有文件
+
+[ThinkPHP5.1文档](https://doc.thinkphp.cn/v5_1/default.html)

@@ -1,0 +1,55 @@
+{
+    "name": "rector/rector-thinkphp",
+    "description": "Rector rules for upgrading ThinkPHP projects from version 3.1.2 to 8.1",
+    "type": "rector-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "yangweijie",
+            "email": "917647288@qq.com"
+        }
+    ],
+    "require": {
+        "php": "^7.4",
+        "rector/rector": "^0.15.0"
+    },
+    "require-dev": {
+        "pestphp/pest": "^1.0",
+        "rector/rector-testing": "^0.15.0",
+        "phpstan/phpstan": "^1.10",
+        "symplify/easy-coding-standard": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Rector\\ThinkPHP\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Rector\\ThinkPHP\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "rector": {
+            "includes": [
+                "config/config.php"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "test-coverage": "pest --coverage",
+        "phpstan": "phpstan analyse",
+        "cs-fix": "ecs check --fix",
+        "cs-check": "ecs check"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "rector/extension-installer": true
+        }
+    }
+}

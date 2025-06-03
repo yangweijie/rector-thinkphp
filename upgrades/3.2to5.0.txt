@@ -1,0 +1,129 @@
+从V3.2版本升级到V5.0
+3.2版本无法直接升级到5.0版本，这里只是给出了升级指导思想和为了使用3.X版本的开发者更快的熟悉并上手这个全新的版本。同时也强烈建议开发者抛弃之前旧的思维模式，因为5.0是一个全新的颠覆重构版本。
+
+需要摒弃的3.X旧思想
+URL的变动
+首先对3.X的不严谨给开发者们带来的不正确的引导表示歉意，在5.0版本正式废除类似/id/1方式 可以通过get获取到id的方法，严格来讲这样的url是不属于$_GET的，现在可以通过param获取，具体使用可以通过请求部分查询。
+
+模型的变动
+新版的模型查询返回默认对象，系统默认增加了toArray方法，许多开发者在all或select尝试使用toArray来转换为数组，在此希望开发者能理解对象的概念，尝试使用对象进行数据的使用，或者使用db方法进行数据库的操作，也提醒一下部分滥用toArray的开发者，all或select结果是对象的数组集合，是无法使用toArray进行转换的。
+
+新版变化
+命名规范
+目录和文件名采用‘小写+下划线’，并且以小写字母开头；
+类库、函数文件统一以.php为后缀；
+类的文件名均以命名空间定义，并且命名空间的路径和类库文件所在路径一致（包括大小写）；
+类名和类文件名保持一致，并统一采用驼峰法命名（首字母大写）
+函数
+系统已经不依赖任何函数，只是对常用的操作封装提供了助手函数；
+单字母函数废弃，默认系统加载助手函数，具体参考上一个章节‘助手函数’；
+路由
+5.0的URL访问不再支持普通URL模式，路由也不支持正则路由定义，而是全部改为规则路由配合变量规则（正则定义）的方式，具体这里不再赘述。
+
+控制器
+控制器的命名空间有所调整，并且可以无需继承任何的控制器类。
+
+应用类库的命名空间统一为app（可修改）而不是模块名；
+控制器的类名默认不带Controller后缀，可以配置开启controller_suffix参数启用控制器类后缀；
+控制器操作方法采用return方式返回数据，而非直接输出；
+废除原来的操作前后置方法；
+版本对比
+3.2版本控制器写法
+
+<?php
+namespace Home\Controller;
+
+use Think\Controller;
+
+class IndexController extends Controller 
+{
+    public function hello()
+    {
+        echo 'hello,thinkphp!';
+    }
+}
+5.0版本控制器写法
+
+namespace app\index\controller;
+
+class Index 
+{
+    public function index()
+    {
+        return 'hello,thinkphp!';
+    }
+}
+3.2版本控制器命名
+
+IndexController.class.php
+5.0版本控制器命名
+
+Index.php
+怎么才能在控制器中正确的输出模板
+5.0在控制器中输出模板，使用方法如下：
+如果你继承think\Controller的话，可以使用：
+
+return $this->fetch('index/hello');
+如果你的控制器没有继承 think\Controller的话，使用：
+
+return view('index/hello');
+模型
+如果非要对比与旧版本的改进，模型被分为数据库、模型、验证器三部分，分别对应M方法、模型、自动验证，同时均有所加强，下面做简单介绍。
+
+数据库
+5.0的数据库查询功能增强，原先需要通过模型才能使用的链式查询可以直接通过Db类调用，原来的M函数调用可以改用db函数，例如：
+3.2版本
+
+M('User')->where(['name'=>'thinkphp'])->find();
+5.0版本
+
+db('User')->where('name','thinkphp')->find();
+模型
+新版的模型查询增加了静态方法，例如：
+
+User::get(1); 
+User::all();
+User::where('id','>',10)->find(); 
+模型部分增强了很多功能，具体请查阅“模型章节”。
+
+自动验证
+对比旧的版本，可以理解为之前的自动验证且不同于之前的验证；
+ThinkPHP5.0验证使用独立的\think\Validate类或者验证器进行验证，不仅适用于模型，在控制器也可直接调用，具体使用规则请参考“验证”章节，这里不再赘述。
+
+配置文件
+新版对配置很多的配置参数或者配置层次都和之前不同了，建议大家要么看看代码，要么仔细通读下官方的开发手册，不要因为配置的问题浪费自己一整天的时间。
+
+异常
+5.0对错误零容忍，默认情况下会对任何级别的错误抛出异常，并且重新设计了异常页面，展示了详尽的错误信息，便于调试。
+
+系统常量的废弃
+5.0版本相对于之前版本对系统变化进行了大量的废弃，用户如果有相关需求可以自行定义
+下面是废除常量
+
+REQUEST_METHOD IS_GET IS_POST IS_PUT IS_DELETE IS_AJAX __EXT__ COMMON_MODULE MODULE_NAME CONTROLLER_NAME ACTION_NAME APP_NAMESPACE APP_DEBUG MODULE_PATH等
+部分常量可以在Request里面进行获取，具体参考“请求章节”。
+
+再次说明本章节仅仅为之前使用3.X版本开发者快速理解5.0所写，具体5.0的功能还需要开发者通读手册。
+
+助手函数
+5.0助手函数和3.2版本的单字母函数对比如下：
+
+3.2版本	5.0版本
+C	config
+E	exception
+G	debug
+L	lang
+T	废除
+I	input
+N	废除
+D	model
+M	db
+A	controller
+R	action
+B	废除
+U	url
+W	widget
+S	cache
+F	废除
+
+5.0文档 https://doc.thinkphp.cn/v5_0/default.html
