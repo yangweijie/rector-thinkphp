@@ -21,7 +21,7 @@ final class CodeQualityAnalyzer
 
     public function __construct()
     {
-        $this->parser = (new ParserFactory())->create(ParserFactory::PREFER_PHP7);
+        $this->parser = (new ParserFactory())->createForNewestSupportedVersion();
         $this->nodeFinder = new NodeFinder();
     }
 
@@ -123,6 +123,11 @@ final class CodeQualityAnalyzer
         $classes = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\Class_::class);
         
         foreach ($classes as $class) {
+            // Skip anonymous classes
+            if ($class->name === null) {
+                continue;
+            }
+
             // Check class naming
             $className = $class->name->toString();
             if (!$this->isValidClassName($className)) {
@@ -165,13 +170,14 @@ final class CodeQualityAnalyzer
         $methods = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\ClassMethod::class);
         
         foreach ($methods as $method) {
+            $methodName = (string) $method->name;
             $complexity = $this->calculateCyclomaticComplexity($method);
-            
+
             if ($complexity > 10) {
                 $analysis['issues'][] = [
                     'type' => 'complexity',
                     'severity' => 'warning',
-                    'message' => "Method '{$method->name}' has high complexity ({$complexity})",
+                    'message' => "Method '{$methodName}' has high complexity ({$complexity})",
                     'suggestion' => 'Break this method into smaller methods'
                 ];
             }
@@ -182,7 +188,7 @@ final class CodeQualityAnalyzer
                 $analysis['issues'][] = [
                     'type' => 'length',
                     'severity' => 'info',
-                    'message' => "Method '{$method->name}' is too long ({$lineCount} lines)",
+                    'message' => "Method '{$methodName}' is too long ({$lineCount} lines)",
                     'suggestion' => 'Consider splitting this method into smaller methods'
                 ];
             }
@@ -198,12 +204,15 @@ final class CodeQualityAnalyzer
         $methods = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\ClassMethod::class);
         
         foreach ($methods as $method) {
+            $methodName = (string) $method->name;
+
             // Check parameter type hints
             foreach ($method->params as $param) {
                 if ($param->type === null && !$this->isSpecialParameter($param)) {
+                    $paramName = $param->var->name ?? 'unknown';
                     $analysis['suggestions'][] = [
                         'type' => 'typing',
-                        'message' => "Add type hint for parameter \${$param->var->name} in method {$method->name}",
+                        'message' => "Add type hint for parameter \${$paramName} in method {$methodName}",
                         'example' => 'public function method(string $param): void'
                     ];
                 }
@@ -213,7 +222,7 @@ final class CodeQualityAnalyzer
             if ($method->returnType === null && !$this->isSpecialMethod($method)) {
                 $analysis['suggestions'][] = [
                     'type' => 'typing',
-                    'message' => "Add return type hint for method {$method->name}",
+                    'message' => "Add return type hint for method {$methodName}",
                     'example' => 'public function method(): string'
                 ];
             }
@@ -229,20 +238,27 @@ final class CodeQualityAnalyzer
         $classes = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\Class_::class);
         
         foreach ($classes as $class) {
+            // Skip anonymous classes
+            if ($class->name === null) {
+                continue;
+            }
+
+            $className = $class->name->toString();
             if ($class->getDocComment() === null) {
                 $analysis['suggestions'][] = [
                     'type' => 'documentation',
-                    'message' => "Add class documentation for {$class->name}",
+                    'message' => "Add class documentation for {$className}",
                     'example' => '/** * Description of the class */'
                 ];
             }
 
             $methods = $this->nodeFinder->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
             foreach ($methods as $method) {
+                $methodName = (string) $method->name;
                 if ($method->isPublic() && $method->getDocComment() === null) {
                     $analysis['suggestions'][] = [
                         'type' => 'documentation',
-                        'message' => "Add documentation for public method {$method->name}",
+                        'message' => "Add documentation for public method {$methodName}",
                         'example' => '/** * Method description * @param string $param * @return string */'
                     ];
                 }
@@ -310,13 +326,13 @@ final class CodeQualityAnalyzer
     private function hasConstructor(\PhpParser\Node\Stmt\Class_ $class): bool
     {
         $methods = $this->nodeFinder->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
-        
+
         foreach ($methods as $method) {
-            if ($method->name->toString() === '__construct') {
+            if ((string) $method->name === '__construct') {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -387,8 +403,8 @@ final class CodeQualityAnalyzer
     {
         // Skip return type hints for special methods
         $specialMethods = ['__construct', '__destruct', '__toString'];
-        
-        return in_array($method->name->toString(), $specialMethods, true);
+
+        return in_array((string) $method->name, $specialMethods, true);
     }
 
     /**

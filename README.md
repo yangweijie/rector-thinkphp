@@ -46,6 +46,10 @@ composer require --dev rector/rector-thinkphp
 The easiest way to upgrade your ThinkPHP project:
 
 ```bash
+# Using the standalone tool (recommended)
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/your/project
+
+# Or using rector directly (if properly configured)
 vendor/bin/rector thinkphp:upgrade-wizard /path/to/your/project
 ```
 
@@ -62,13 +66,42 @@ The wizard will:
 
 ```bash
 # Specify versions explicitly
-vendor/bin/rector thinkphp:upgrade-wizard /path/to/project --from-version=5.0 --to-version=6.0
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/project --from-version=5.0 --to-version=6.0
 
 # Create backup before upgrading
-vendor/bin/rector thinkphp:upgrade-wizard /path/to/project --backup
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/project --backup
 
 # Preview changes without applying them
-vendor/bin/rector thinkphp:upgrade-wizard /path/to/project --dry-run
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/project --dry-run
+```
+
+### 📦 **Batch Upgrade Multiple Projects**
+
+For upgrading multiple projects at once:
+
+```bash
+./vendor/bin/thinkphp-rector thinkphp:batch-upgrade config/batch-upgrade.json
+```
+
+Example batch configuration file:
+
+```json
+{
+  "projects": {
+    "project-alpha": {
+      "path": "/var/www/project-alpha",
+      "from_version": "3.2",
+      "to_version": "6.0",
+      "backup": true
+    },
+    "project-beta": {
+      "path": "/var/www/project-beta",
+      "from_version": "5.0",
+      "to_version": "8.0",
+      "backup": false
+    }
+  }
+}
 ```
 
 ### ⚙️ **Manual Configuration**

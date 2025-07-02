@@ -1,0 +1,31 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Rector\ThinkPHP\Command\UpgradeWizardCommand;
+use Rector\ThinkPHP\Command\BatchUpgradeCommand;
+use Symfony\Component\Console\Application;
+
+// Autoload
+$autoloadFiles = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+foreach ($autoloadFiles as $autoloadFile) {
+    if (file_exists($autoloadFile)) {
+        require_once $autoloadFile;
+        break;
+    }
+}
+
+// Create application
+$application = new Application('ThinkPHP Rector', '1.0.0');
+
+// Add commands
+$application->add(new UpgradeWizardCommand());
+$application->add(new BatchUpgradeCommand());
+
+// Run application
+$application->run();

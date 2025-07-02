@@ -7,6 +7,10 @@ This document provides practical examples of how to use Rector ThinkPHP to upgra
 The easiest way to upgrade your ThinkPHP project is using the interactive wizard:
 
 ```bash
+# Using standalone tool (recommended)
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/your/project
+
+# Or using rector directly (if configured)
 vendor/bin/rector thinkphp:upgrade-wizard /path/to/your/project
 ```
 
@@ -21,13 +25,24 @@ The wizard will:
 
 ```bash
 # Specify source and target versions
-vendor/bin/rector thinkphp:upgrade-wizard /path/to/project --from-version=5.0 --to-version=6.0
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/project --from-version=5.0 --to-version=6.0
 
 # Create backup before upgrading
-vendor/bin/rector thinkphp:upgrade-wizard /path/to/project --backup
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/project --backup
 
 # Dry run to see what would change
-vendor/bin/rector thinkphp:upgrade-wizard /path/to/project --dry-run
+./vendor/bin/thinkphp-rector thinkphp:upgrade-wizard /path/to/project --dry-run
+```
+
+## Batch Upgrade
+
+For upgrading multiple projects at once:
+
+```bash
+./vendor/bin/thinkphp-rector thinkphp:batch-upgrade examples/batch-upgrade-config.json
+
+# With options
+./vendor/bin/thinkphp-rector thinkphp:batch-upgrade config.json --dry-run --backup --parallel=3
 ```
 
 ## Manual Configuration

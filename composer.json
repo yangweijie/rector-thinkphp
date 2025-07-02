@@ -29,10 +29,14 @@
             "Rector\\ThinkPHP\\Tests\\": "tests/"
         }
     },
+    "bin": [
+        "bin/thinkphp-rector"
+    ],
     "extra": {
         "rector": {
             "includes": [
-                "config/config.php"
+                "config/config.php",
+                "config/services.php"
             ]
         }
     },
