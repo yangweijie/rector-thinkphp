@@ -4,6 +4,7 @@
 
 - PHP 7.4 or higher (PHP 8.0+ recommended)
 - Composer
+- Required PHP extensions: `ext-ctype`, `ext-json`, `ext-tokenizer`
 
 ## Installation
 

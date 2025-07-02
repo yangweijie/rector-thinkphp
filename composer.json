@@ -12,7 +12,8 @@
     "require": {
         "php": "^7.4|^8.0",
         "rector/rector": "^0.15.0|^1.0",
-        "symfony/console": "^5.4|^6.0|^7.0"
+        "symfony/console": "^5.4|^6.0|^7.0",
+        "nikic/php-parser": "^4.15|^5.0"
     },
     "require-dev": {
         "pestphp/pest": "^1.0|^2.0",

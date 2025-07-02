@@ -16,13 +16,35 @@ use PhpParser\ParserFactory;
  */
 final class CodeQualityAnalyzer
 {
-    private Parser $parser;
-    private NodeFinder $nodeFinder;
+    private ?Parser $parser = null;
+    private ?NodeFinder $nodeFinder = null;
 
     public function __construct()
     {
+        // Delay initialization to avoid dependency issues during construction
+    }
+
+    private function initializeParser(): void
+    {
+        if ($this->parser !== null) {
+            return;
+        }
+
+        if (!class_exists(ParserFactory::class)) {
+            throw new \RuntimeException(
+                'PhpParser is required for code quality analysis. ' .
+                'Please install nikic/php-parser: composer require nikic/php-parser'
+            );
+        }
+
         $this->parser = (new ParserFactory())->createForNewestSupportedVersion();
         $this->nodeFinder = new NodeFinder();
+    }
+
+    private function getNodeFinder(): NodeFinder
+    {
+        $this->initializeParser();
+        return $this->nodeFinder;
     }
 
     /**
@@ -30,6 +52,8 @@ final class CodeQualityAnalyzer
      */
     public function analyzeFile(string $filePath): array
     {
+        $this->initializeParser();
+
         if (!file_exists($filePath)) {
             return ['error' => 'File not found'];
         }
@@ -86,7 +110,7 @@ final class CodeQualityAnalyzer
      */
     private function checkNamespaces(array $ast, array &$analysis): void
     {
-        $namespaces = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\Namespace_::class);
+        $namespaces = $this->getNodeFinder()->findInstanceOf($ast, \PhpParser\Node\Stmt\Namespace_::class);
         
         if (empty($namespaces)) {
             $analysis['issues'][] = [
@@ -120,7 +144,7 @@ final class CodeQualityAnalyzer
      */
     private function checkClassStructure(array $ast, array &$analysis): void
     {
-        $classes = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\Class_::class);
+        $classes = $this->getNodeFinder()->findInstanceOf($ast, \PhpParser\Node\Stmt\Class_::class);
         
         foreach ($classes as $class) {
             // Skip anonymous classes
@@ -140,7 +164,7 @@ final class CodeQualityAnalyzer
             }
 
             // Check for too many methods
-            $methods = $this->nodeFinder->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
+            $methods = $this->getNodeFinder()->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
             if (count($methods) > 20) {
                 $analysis['issues'][] = [
                     'type' => 'structure',
@@ -167,7 +191,7 @@ final class CodeQualityAnalyzer
      */
     private function checkMethodComplexity(array $ast, array &$analysis): void
     {
-        $methods = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\ClassMethod::class);
+        $methods = $this->getNodeFinder()->findInstanceOf($ast, \PhpParser\Node\Stmt\ClassMethod::class);
         
         foreach ($methods as $method) {
             $methodName = (string) $method->name;
@@ -201,7 +225,7 @@ final class CodeQualityAnalyzer
      */
     private function checkTypeHints(array $ast, array &$analysis): void
     {
-        $methods = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\ClassMethod::class);
+        $methods = $this->getNodeFinder()->findInstanceOf($ast, \PhpParser\Node\Stmt\ClassMethod::class);
         
         foreach ($methods as $method) {
             $methodName = (string) $method->name;
@@ -235,7 +259,7 @@ final class CodeQualityAnalyzer
      */
     private function checkDocBlocks(array $ast, array &$analysis): void
     {
-        $classes = $this->nodeFinder->findInstanceOf($ast, \PhpParser\Node\Stmt\Class_::class);
+        $classes = $this->getNodeFinder()->findInstanceOf($ast, \PhpParser\Node\Stmt\Class_::class);
         
         foreach ($classes as $class) {
             // Skip anonymous classes
@@ -252,7 +276,7 @@ final class CodeQualityAnalyzer
                 ];
             }
 
-            $methods = $this->nodeFinder->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
+            $methods = $this->getNodeFinder()->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
             foreach ($methods as $method) {
                 $methodName = (string) $method->name;
                 if ($method->isPublic() && $method->getDocComment() === null) {
@@ -325,7 +349,7 @@ final class CodeQualityAnalyzer
 
     private function hasConstructor(\PhpParser\Node\Stmt\Class_ $class): bool
     {
-        $methods = $this->nodeFinder->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
+        $methods = $this->getNodeFinder()->findInstanceOf($class->stmts, \PhpParser\Node\Stmt\ClassMethod::class);
 
         foreach ($methods as $method) {
             if ((string) $method->name === '__construct') {
