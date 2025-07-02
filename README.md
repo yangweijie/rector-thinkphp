@@ -36,8 +36,10 @@ Rector rules for upgrading ThinkPHP projects from version 3.1.2 to 8.1.
 ## Installation
 
 ```bash
-composer require --dev rector/rector-thinkphp
+composer require --dev yangweijie/rector-thinkphp
 ```
+
+For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 ## Usage
 

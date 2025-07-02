@@ -7,17 +7,44 @@ use Rector\ThinkPHP\Command\UpgradeWizardCommand;
 use Rector\ThinkPHP\Command\BatchUpgradeCommand;
 use Symfony\Component\Console\Application;
 
-// Autoload
+// Autoload - try different possible locations
 $autoloadFiles = [
+    // When running from the package itself (development)
     __DIR__ . '/../vendor/autoload.php',
+    // When installed as a dependency (most common case)
     __DIR__ . '/../../../autoload.php',
+    // When installed globally via composer
+    __DIR__ . '/../../../../../autoload.php',
+    // Fallback for other scenarios
+    dirname(__DIR__, 4) . '/autoload.php',
 ];
 
+$autoloadFound = false;
 foreach ($autoloadFiles as $autoloadFile) {
     if (file_exists($autoloadFile)) {
         require_once $autoloadFile;
+        $autoloadFound = true;
         break;
     }
+}
+
+if (!$autoloadFound) {
+    fwrite(STDERR, "Error: Could not find autoload.php file.\n");
+    fwrite(STDERR, "Please make sure you have run 'composer install' and that the package is properly installed.\n");
+    exit(1);
+}
+
+// Check if required classes are available
+if (!class_exists(Application::class)) {
+    fwrite(STDERR, "Error: Symfony Console component not found.\n");
+    fwrite(STDERR, "Please run 'composer install' to install all dependencies.\n");
+    exit(1);
+}
+
+if (!class_exists(UpgradeWizardCommand::class)) {
+    fwrite(STDERR, "Error: ThinkPHP Rector commands not found.\n");
+    fwrite(STDERR, "Please make sure the rector-thinkphp package is properly installed.\n");
+    exit(1);
 }
 
 // Create application
