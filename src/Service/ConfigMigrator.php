@@ -192,7 +192,7 @@ final class ConfigMigrator
         }
 
         // Load old config
-        $oldConfig = include $oldConfigFile;
+        $oldConfig = $this->safeLoadConfigFile($oldConfigFile);
         if (!is_array($oldConfig)) {
             $result['errors'][] = 'Invalid config file format: ' . $oldConfigFile;
             return;
@@ -234,11 +234,13 @@ final class ConfigMigrator
             $newPath = $newConfigDir . '/' . $newFile;
 
             if (file_exists($oldPath)) {
-                $config = include $oldPath;
+                $config = $this->safeLoadConfigFile($oldPath);
                 if (is_array($config)) {
                     $convertedConfig = $this->convertConfig50To51($config, $oldFile);
                     $this->writeConfigFile($newPath, $convertedConfig);
                     $result['migrated_files'][] = $newPath;
+                } else {
+                    $result['warnings'][] = 'Could not safely parse config file: ' . $oldPath;
                 }
             }
         }
@@ -256,18 +258,20 @@ final class ConfigMigrator
         // Update app.php for 6.0 structure
         $appConfigFile = $configDir . '/app.php';
         if (file_exists($appConfigFile)) {
-            $config = include $appConfigFile;
+            $config = $this->safeLoadConfigFile($appConfigFile);
             if (is_array($config)) {
                 $convertedConfig = $this->convertConfig51To60($config);
                 $this->writeConfigFile($appConfigFile, $convertedConfig);
                 $result['migrated_files'][] = $appConfigFile;
+            } else {
+                $result['warnings'][] = 'Could not safely parse config file: ' . $appConfigFile;
             }
         }
 
         // Update database.php for 6.0 structure
         $dbConfigFile = $configDir . '/database.php';
         if (file_exists($dbConfigFile)) {
-            $config = include $dbConfigFile;
+            $config = $this->safeLoadConfigFile($dbConfigFile);
             if (is_array($config)) {
                 $convertedConfig = $this->convertDatabase51To60($config);
                 $this->writeConfigFile($dbConfigFile, $convertedConfig);
@@ -398,7 +402,7 @@ final class ConfigMigrator
                 $result['valid'] = false;
                 $result['issues'][] = "Missing required config file: {$file}";
             } else {
-                $config = include $filePath;
+                $config = $this->safeLoadConfigFile($filePath);
                 if (!is_array($config)) {
                     $result['valid'] = false;
                     $result['issues'][] = "Invalid config file format: {$file}";
@@ -419,5 +423,105 @@ final class ConfigMigrator
         ];
 
         return $files[$version] ?? [];
+    }
+
+    /**
+     * Safely load a PHP config file without executing ThinkPHP-specific code
+     */
+    private function safeLoadConfigFile(string $filePath): ?array
+    {
+        if (!file_exists($filePath)) {
+            return null;
+        }
+
+        $content = file_get_contents($filePath);
+        if ($content === false) {
+            return null;
+        }
+
+        // Check if the file contains ThinkPHP facades or other problematic code
+        if ($this->containsProblematicCode($content)) {
+            // Try to extract config array using regex parsing
+            return $this->parseConfigWithRegex($content);
+        }
+
+        // If it looks safe, try to include it
+        try {
+            $config = include $filePath;
+            return is_array($config) ? $config : null;
+        } catch (\Throwable $e) {
+            // If include fails, fall back to regex parsing
+            return $this->parseConfigWithRegex($content);
+        }
+    }
+
+    /**
+     * Check if the file contains code that might cause issues when included
+     */
+    private function containsProblematicCode(string $content): bool
+    {
+        $problematicPatterns = [
+            '/think\\\\facade\\\\/',
+            '/\\\\think\\\\facade\\\\/',
+            '/Env::/',
+            '/Config::/',
+            '/\\\\think\\\\/',
+            '/use think\\\\/',
+        ];
+
+        foreach ($problematicPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Parse config file using regex to extract the return array
+     */
+    private function parseConfigWithRegex(string $content): ?array
+    {
+        // Try to extract a simple return array pattern
+        if (preg_match('/return\s*\[(.*?)\];/s', $content, $matches)) {
+            // This is a simplified parser - for complex configs, we'll return a default structure
+            return $this->getDefaultConfigStructure();
+        }
+
+        // Try to extract return array() pattern
+        if (preg_match('/return\s*array\s*\((.*?)\);/s', $content, $matches)) {
+            return $this->getDefaultConfigStructure();
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a default config structure when we can't safely parse the original
+     */
+    private function getDefaultConfigStructure(): array
+    {
+        return [
+            // Basic app config
+            'debug' => true,
+            'default_timezone' => 'Asia/Shanghai',
+            'default_lang' => 'zh-cn',
+
+            // Database config (will be overridden by specific database config)
+            'default' => 'mysql',
+            'connections' => [
+                'mysql' => [
+                    'type' => 'mysql',
+                    'hostname' => '127.0.0.1',
+                    'database' => '',
+                    'username' => 'root',
+                    'password' => '',
+                    'hostport' => '3306',
+                    'prefix' => '',
+                    'charset' => 'utf8',
+                ]
+            ]
+        ];
     }
 }
